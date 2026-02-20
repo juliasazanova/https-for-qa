@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTTPS для QA — От зелёного замочка до экспертизы</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #0a0f1e;
+            color: #e6f1ff;
+            line-height: 1.5;
+            overflow: hidden;
+        }
+        .slides-container {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            background: radial-gradient(circle at 10% 30%, #13213a, #0a0f1e);
+        }
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 2.5rem 4rem 6rem 4rem; /* Увеличил нижний отступ для футера */
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .slide.active {
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 10;
+        }
+        h1 {
+            font-size: 3.8rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #b3e0ff, #4a9eff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+        h2 {
+            font-size: 2.4rem;
+            font-weight: 600;
+            margin-bottom: 1.8rem;
+            color: #cce9ff;
+            border-left: 6px solid #3b9eff;
+            padding-left: 1.2rem;
+        }
+        h3 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #aad4ff;
+        }
+        p, li {
+            font-size: 1.2rem;
+            color: #e2edf7;
+            margin-bottom: 0.75rem;
+        }
+        .badge {
+            display: inline-block;
+            background: #1e3a5a;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: white;
+        }
+        .green { color: #b1ff9e; font-weight: 600; }
+        .red { color: #ff9e9e; font-weight: 600; }
+        .yellow { color: #ffe570; font-weight: 600; }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 1.2rem;
+        }
+        .card {
+            background: rgba(18, 35, 55, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(74, 158, 255, 0.2);
+            border-radius: 24px;
+            padding: 1.8rem;
+            box-shadow: 0 20px 35px -8px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: #4a9eff;
+            box-shadow: 0 25px 40px -8px rgba(74, 158, 255, 0.3);
+        }
+        .card-good {
+            border-left: 8px solid #3dd68c;
+            background: rgba(30, 70, 50, 0.2);
+        }
+        .card-bad {
+            border-left: 8px solid #ff6b6b;
+            background: rgba(90, 30, 30, 0.2);
+        }
+        .card-warn {
+            border-left: 8px solid #ffd166;
+            background: rgba(90, 80, 30, 0.2);
+        }
+        
+        /* Стили для аккордеона */
+        .accordion {
+            width: 100%;
+            margin: 1rem 0;
+        }
+        
+        .accordion-item {
+            background: rgba(18, 35, 55, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(74, 158, 255, 0.2);
+            border-radius: 16px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+        
+        .accordion-header {
+            padding: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(30, 64, 100, 0.3);
+            transition: background 0.3s ease;
+        }
+        
+        .accordion-header:hover {
+            background: rgba(30, 64, 100, 0.5);
+        }
+        
+        .accordion-header h3 {
+            margin: 0;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+        
+        .accordion-icon {
+            font-size: 1.8rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .accordion-item.active .accordion-icon {
+            transform: rotate(180deg);
+        }
+        
+        .accordion-content {
+            max-height: 0;
+            padding: 0 1.5rem;
+            overflow: hidden;
+            transition: max-height 0.5s ease, padding 0.3s ease;
+            background: rgba(10, 25, 40, 0.5);
+        }
+        
+        .accordion-item.active .accordion-content {
+            max-height: 1200px;
+            padding: 1.5rem;
+        }
+        
+        .accordion-content p {
+            margin-bottom: 0.8rem;
+        }
+        
+        .accordion-content ul {
+            list-style: none;
+            padding-left: 1.2rem;
+        }
+        
+        .accordion-content li {
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+        
+        .accordion-content li::before {
+            content: "•";
+            color: #4a9eff;
+            font-weight: bold;
+            position: absolute;
+            left: -1rem;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.2rem 0;
+            font-size: 1.1rem;
+            background: rgba(10, 25, 40, 0.7);
+            border-radius: 16px;
+        }
+        th {
+            background: #1e3f60;
+            color: white;
+            padding: 0.9rem;
+            font-weight: 600;
+            text-align: left;
+        }
+        td {
+            padding: 0.8rem;
+            border-bottom: 1px solid #2a4a6a;
+        }
+        
+        /* Новая навигация в виде футера */
+        .nav-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            background: rgba(10, 15, 30, 0.85);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(74, 158, 255, 0.3);
+            box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .progress-footer {
+            font-size: 1.1rem;
+            color: #aad4ff;
+            background: rgba(30, 64, 100, 0.4);
+            padding: 0.5rem 1.2rem;
+            border-radius: 30px;
+            border: 1px solid rgba(74, 158, 255, 0.3);
+            letter-spacing: 1px;
+        }
+        
+        .nav-controls-footer {
+            display: flex;
+            gap: 0.8rem;
+        }
+        
+        .nav-btn-footer {
+            background: rgba(30, 64, 100, 0.8);
+            border: none;
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 30px;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        
+        .nav-btn-footer:hover {
+            background: #2f6c9f;
+            transform: scale(1.05);
+            border-color: #4a9eff;
+            box-shadow: 0 0 15px rgba(74, 158, 255, 0.5);
+        }
+        
+        .nav-btn-footer.home-btn-footer {
+            background: rgba(30, 64, 100, 0.8);
+            font-size: 1.8rem;
+        }
+        
+        .nav-btn-footer.home-btn-footer:hover {
+            background: #2f6c9f;
+        }
+        
+        .code-block {
+            background: #0a1a24;
+            padding: 1.2rem;
+            border-radius: 16px;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #2f6080;
+            color: #ffe28c;
+            margin: 1rem 0;
+            overflow-x: auto;
+        }
+        .example-box {
+            background: #1e2e4a;
+            padding: 1.2rem;
+            border-radius: 16px;
+            border-left: 4px solid #4a9eff;
+            margin: 1rem 0;
+        }
+        .section-slide {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .section-icon {
+            font-size: 5rem;
+            margin-bottom: 1.5rem;
+        }
+        .section-title {
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #fff, #b3e0ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .section-subtitle {
+            font-size: 1.8rem;
+            color: #aad4ff;
+            margin-bottom: 2rem;
+        }
+        
+        /* Стили для кликабельных элементов навигации */
+        .nav-item {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .nav-item:hover {
+            transform: translateX(10px);
+            background: #1a3f5a !important;
+            border-color: #4a9eff !important;
+        }
+        
+        .nav-item:active {
+            transform: scale(0.98);
+        }
+        
+        .nav-item::after {
+            content: "→";
+            position: absolute;
+            right: -30px;
+            opacity: 0;
+            transition: all 0.3s ease;
+            color: #4a9eff;
+            font-size: 1.2rem;
+        }
+        
+        .nav-item:hover::after {
+            right: 20px;
+            opacity: 1;
+        }
+        
+        /* Адаптация для мобильных */
+        @media (max-width: 768px) {
+            .slide {
+                padding: 1.5rem 1.5rem 6rem 1.5rem;
+            }
+            
+            h1 {
+                font-size: 2.5rem;
+            }
+            
+            h2 {
+                font-size: 1.8rem;
+            }
+            
+            .nav-footer {
+                padding: 0.8rem 1rem;
+            }
+            
+            .nav-btn-footer {
+                width: 42px;
+                height: 42px;
+                font-size: 1.5rem;
+            }
+            
+            .progress-footer {
+                font-size: 0.9rem;
+                padding: 0.4rem 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="slides-container" id="slidesContainer">
+        <!-- ============ СЛАЙД 1. ТИТУЛЬНЫЙ ============ -->
+        <div class="slide active" id="slide1">
+            <div style="display: flex; flex-direction: column; justify-content: center; min-height: 100%;">
+                <h1 style="font-size: 4.2rem; margin-bottom: 0.5rem;">HTTPS для QA:</h1>
+                <h1 style="font-size: 4.2rem; margin-bottom: 2rem; background: linear-gradient(135deg, #fff, #b3e0ff); -webkit-background-clip: text;">От замочка до экспертизы</h1>
+                
+                <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 2rem; background: rgba(0,0,0,0.3); padding: 2rem; border-radius: 32px;">
+                    <div class="nav-item" data-slide="2" style="display: flex; align-items: center; gap: 1rem; background: #0e2a3a; padding: 0.8rem 1.5rem; border-radius: 50px; font-size: 1.2rem; border: 1px solid #3b9eff;">
+                        <span>📘 ЧАСТЬ 1 — ТЕОРИЯ</span>
+                    </div>
+                    <div class="nav-item" data-slide="9" style="display: flex; align-items: center; gap: 1rem; background: #0e2a3a; padding: 0.8rem 1.5rem; border-radius: 50px; font-size: 1.2rem; border: 1px solid #3b9eff;">
+                        <span>✅ ЧАСТЬ 2 — ЭТАЛОНЫ И ДЕФЕКТЫ</span>
+                    </div>
+                    <div class="nav-item" data-slide="17" style="display: flex; align-items: center; gap: 1rem; background: #0e2a3a; padding: 0.8rem 1.5rem; border-radius: 50px; font-size: 1.2rem; border: 1px solid #3b9eff;">
+                        <span>🛠️ ЧАСТЬ 3 — ИНСТРУМЕНТЫ</span>
+                    </div>
+                    <div class="nav-item" data-slide="14" style="display: flex; align-items: center; gap: 1rem; background: #0e2a3a; padding: 0.8rem 1.5rem; border-radius: 50px; font-size: 1.2rem; border: 1px solid #3b9eff;">
+                        <span>🔍 ЧАСТЬ 4 — ПРАКТИЧЕСКИЙ РАЗБОР</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ СЛАЙД 2. РАЗДЕЛ: ТЕОРИЯ ============ -->
+        <div class="slide section-slide" id="slide2">
+            <div class="section-icon">📘</div>
+            <div class="section-title">ЧАСТЬ 1</div>
+            <div class="section-subtitle">ТЕОРИЯ</div>
+            <div style="width: 100px; height: 3px; background: linear-gradient(90deg, #3b9eff, transparent); margin: 2rem 0;"></div>
+            <p style="font-size: 1.6rem; color: #c2e0ff; max-width: 800px;">Как работает HTTPS, шифрование, сертификаты и алгоритмы</p>
+        </div>
+
+        <!-- ============ СЛАЙД 3. ЧТО ТАКОЕ HTTPS? ============ -->
+        <div class="slide" id="slide3">
+            <h2>📘 1.1. Что такое HTTPS?</h2>
+            
+            <div style="display: flex; align-items: center; margin: 2rem 0;">
+                <span style="font-size: 4rem; margin-right: 1.5rem;">🛡️</span>
+                <p style="font-size: 2.2rem; font-weight: 600;">HTTPS = HTTP, который надел бронежилет</p>
+            </div>
+
+            <div class="grid-2">
+                <div class="card card-bad">
+                    <span style="font-size: 2rem;">📦❌</span>
+                    <h3>HTTP — без защиты</h3>
+                    <p>• Данные передаются открыто</p>
+                    <p>• Злоумышленник может украсть конфиденциальные данные</p>
+                    <p>• Можно подменить содержимое страницы</p>
+                </div>
+                <div class="card card-good">
+                    <span style="font-size: 2rem;">📦🔒</span>
+                    <h3>HTTPS — с защитой</h3>
+                    <p>• Данные шифруются</p>
+                    <p>• Злоумышленник видит только 7f8a1b...c9d2e4</p>
+                    <p>• Расшифровать без ключа — невозможно</p>
+                    <p>• Подменить данные — не получится</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ СЛАЙД 4. КАК HTTPS ШИФРУЕТ ДАННЫЕ? ============ -->
+        <div class="slide" id="slide4">
+            <h2>🔑 1.2. Два способа шифрования и их комбинация</h2>
+
+            <!-- Аккордеон -->
+            <div class="accordion">
+                <!-- Способ 1: Симметричное шифрование -->
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <h3>
+                            <span>🔐</span>
+                            СПОСОБ 1. СИММЕТРИЧНОЕ ШИФРОВАНИЕ (ОДИН КЛЮЧ)
+                        </h3>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Как работает:</strong> Браузер и сервер используют <strong>один и тот же ключ</strong>. Этим ключом шифруют и расшифровывают.</p>
+                        <p><span class="green">✅ Плюс:</span> <strong>ОЧЕНЬ БЫСТРО.</strong> Можно шифровать гигабайты данных.</p>
+                        <p><span class="red">❌ Минус:</span> <strong>КЛЮЧ НУЖНО ПЕРЕДАТЬ.</strong> Браузер и сервер не могут встретиться лично. Если передать ключ открыто — злоумышленник перехватит и расшифрует всё.</p>
+                        <p><span class="yellow">⚠️ Проблема:</span> Как передать ключ безопасно, если канал не защищён?</p>
+                    </div>
+                </div>
+
+                <!-- Способ 2: Асимметричное шифрование -->
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <h3>
+                            <span>🛡️</span>
+                            СПОСОБ 2. АСИММЕТРИЧНОЕ ШИФРОВАНИЕ (ПАРА КЛЮЧЕЙ)
+                        </h3>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Как работает:</strong> У сервера есть <strong>два разных ключа</strong>:</p>
+                        <ul>
+                            <li>🔓 <strong>Публичный</strong> — можно давать всем, даже злоумышленникам.</li>
+                            <li>🔐 <strong>Приватный</strong> — хранится в секрете, только у сервера.</li>
+                        </ul>
+                        <p>Браузер берёт публичный ключ, шифрует данные, отправляет. Расшифровать может <strong>только сервер</strong> — своим приватным ключом.</p>
+                        <p><span class="green">✅ Плюс:</span> <strong>КЛЮЧ НЕ НУЖНО ПЕРЕДАВАТЬ.</strong> Публичный ключ можно раздавать открыто. Даже если украдут — он только для шифровки.</p>
+                        <p><span class="red">❌ Минус:</span> <strong>ОЧЕНЬ МЕДЛЕННО.</strong> Требует сложных математических вычислений. Если шифровать им всё подряд, сайт будет грузиться минутами</strong>.</p>
+                        <p><span class="yellow">⚠️ Проблема:</span> Надёжно, но для больших данных непригодно.</p>
+                    </div>
+                </div>
+
+                <!-- Способ 3: HTTPS — КОМБИНАЦИЯ -->
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <h3>
+                            <span>🚀</span>
+                            СПОСОБ 3. HTTPS — КОМБИНАЦИЯ
+                        </h3>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Идея:</strong> Берём <strong>плюсы</strong> обоих способов, убираем <strong>минусы</strong>.</p>
+                        
+                        <h4 style="color: #aad4ff; margin: 1rem 0 0.5rem 0;">🔐 ШАГ 1. Безопасно передаём симметричный ключ (асимметричное шифрование)</h4>
+                        <div style="margin-left: 1.2rem;">
+                            <div style="margin-bottom: 0.5rem;">1. Сервер отправляет браузеру свой <strong>публичный ключ</strong>.</div>
+                            <div style="margin-bottom: 0.5rem;">2. Браузер генерирует случайный <strong>симметричный ключ</strong> (например, «x7Gk9p»).</div>
+                            <div style="margin-bottom: 0.5rem;">3. Браузер <strong>шифрует</strong> этот ключ публичным ключом сервера.</div>
+                            <div style="margin-bottom: 0.5rem;">4. Браузер отправляет зашифрованный ключ серверу.</div>
+                            <div style="margin-bottom: 0.5rem;">5. Сервер <strong>расшифровывает</strong> своим приватным ключом.</div>
+                        </div>
+                        
+                        <div style="background: #1e4a3a; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                            ✅ <strong>Результат:</strong> У браузера и сервера появился <strong>ОДИН ОБЩИЙ СИММЕТРИЧНЫЙ КЛЮЧ</strong>. Никто в интернете не знает, какой это ключ. Асимметричное шифрование использовали <strong>один раз</strong> и для <strong>маленького кусочка данных</strong>.
+                        </div>
+                        
+                        <h4 style="color: #aad4ff; margin: 1rem 0 0.5rem 0;">⚡ ШАГ 2. Быстро шифруем данные (симметричное шифрование)</h4>
+                        <div style="margin-left: 1.2rem;">
+                            <div style="margin-bottom: 0.5rem;">6. Браузер и сервер шифруют <strong>ВСЮ ПЕРЕПИСКУ</strong> этим общим ключом.</div>
+                        </div>
+                        
+                        <div style="background: #1e4a3a; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                            ✅ <strong>Результат:</strong> Симметричное шифрование — <strong>мгновенное</strong>, даже для гигабайтов данных. Скорость высокая, ключ в безопасности.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ИТОГОВАЯ ТАБЛИЦА -->
+            <div style="margin-top: 2rem; background: #122b40; padding: 1.2rem; border-radius: 16px;">
+                <h3>📊 ИТОГ:</h3>
+                <table style="margin-top: 0.5rem;">
+                    <tr><th></th><th>Асимметричное</th><th>Симметричное</th><th>HTTPS</th></tr>
+                    <tr><td><strong>Передача ключа</strong></td><td>✅ Безопасно</td><td>❌ Опасно</td><td>✅ Асимметричное</td></tr>
+                    <tr><td><strong>Шифрование данных</strong></td><td>❌ Медленно</td><td>✅ Быстро</td><td>✅ Симметричное</td></tr>
+                </table>
+                <p style="margin-top: 1.2rem; font-size: 1.4rem; font-weight: 700; color: #b3e0ff; text-align: center;">
+                    🎯 HTTPS = асимметричное шифрование для безопасной передачи ключа + симметричное шифрование для быстрой передачи данных.
+                </p>
+            </div>
+        </div>
+
+        <!-- ============ СЛАЙД 5. TLS HANDSHAKE ============ -->
+        <div class="slide" id="slide5">
+            <h2>🤝 1.3. Как браузер и сервер договариваются о шифровании</h2>
+            <p style="font-size: 1.4rem; margin-bottom: 2rem;">На примере диалога. Всего 4 фразы.</p>
+
+            <div style="background: #0c1f2b; padding: 2rem; border-radius: 28px; border: 1px solid #2f6080;">
+                <div style="display: flex; margin-bottom: 1.5rem;">
+                    <span style="background: #1e3a5a; border-radius: 50%; width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">1</span>
+                    <div><strong style="color: #b1e6ff;">🗣️ Браузер:</strong> «Привет! Давай общаться безопасно?»<br>
+                    <span style="font-size: 1rem; color: #aad4ff;">(отправляет список версий TLS, алгоритмов шифрования, способов обмена ключами)</span></div>
+                </div>
+                <div style="display: flex; margin-bottom: 1.5rem;">
+                    <span style="background: #1e3a5a; border-radius: 50%; width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">2</span>
+                    <div><strong style="color: #b1e6ff;">🖥️ Сервер:</strong> «Ок, давай так. Вот мои документы.»<br>
+                    <span style="font-size: 1rem; color: #aad4ff;">(выбирает параметры и отправляет сертификат — паспорт сайта)</span></div>
+                </div>
+                <div style="display: flex; margin-bottom: 1.5rem;">
+                    <span style="background: #1e3a5a; border-radius: 50%; width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">3</span>
+                    <div><strong style="color: #b1e6ff;">🔍 Браузер:</strong> «Проверяю документы...»<br>
+                    <span style="font-size: 1rem; color: #aad4ff;">(проверяет срок, домен, подпись, отзыв)</span></div>
+                </div>
+                <div style="display: flex;">
+                    <span style="background: #1e3a5a; border-radius: 50%; width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">4</span>
+                    <div><strong style="color: #b1e6ff;">🤝 Браузер и сервер:</strong> «Договорились. Теперь шифруем.»<br>
+                    <span style="font-size: 1rem; color: #aad4ff;">(создают общий секретный ключ для этой сессии)</span></div>
+                </div>
+            </div>
+
+             <div style="margin-top: 2rem; display: flex; gap: 1.5rem;">
+                <div style="background: #1e4a3a; padding: 1.2rem; border-radius: 16px; flex: 1;">
+                    <p style="font-size: 1.3rem;" class="green">✅ Всё прошло хорошо</p>
+                    <p style="font-size: 1.1rem;">→ <span style="color: #cccccc;">🔒 Серый замочек</span></p>
+                </div>
+                <div style="background: #5a1e1e; padding: 1.2rem; border-radius: 16px; flex: 1;">
+                    <p style="font-size: 1.3rem;" class="red">❌ Что-то пошло не так</p>
+                    <p style="font-size: 1.1rem;">→ 🔺 Красный треугольник</p>
+                </div>
+            </div>
+            <p class="footnote" style="margin-top: 1rem;">*Все браузеры перешли на ЕДИНЫЙ серый замок для HTTPS. Зелёный/желтый/красный замки больше не используются.</p>
+        </div>
+
+        <!-- ============ СЛАЙД 6. TLS СЕРТИФИКАТ ============ -->
+        <div class="slide" id="slide6">
+            <h2>📜 1.4. TLS сертификат — паспорт сайта</h2>
+            <p style="font-size: 1.3rem; margin-bottom: 2rem;">Сертификат подтверждает: «Я тот, за кого себя выдаю».</p>
+
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <h3>📇 Структура сертификата:</h3>
+                <table style="margin-top: 0.5rem;">
+                    <tr><td style="width: 30%;"><strong>Common Name (CN)</strong></td><td>Домен сайта (example.com)</td></tr>
+                    <tr><td><strong>Organization (O)</strong></td><td>Название компании (заполнено только у сертификатов OV и EV)</td></tr>
+                    <tr><td><strong>Issuer (CA)</strong></td><td>Кто выдал (GlobalSign, DigiCert, Let's Encrypt и т.д.)</td></tr>
+                    <tr><td><strong>Validity</strong></td><td>Срок действия (выдан / истекает)</td></tr>
+                    <tr><td><strong>Public Key</strong></td><td>Публичный ключ сервера</td></tr>
+                    <tr><td><strong>Signature</strong></td><td>Цифровая подпись CA</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- ============ СЛАЙД 7. ТИПЫ И УРОВНИ СЕРТИФИКАТОВ ============ -->
+        <div class="slide" id="slide7">
+            <h2>📊 1.5. Сертификаты — уровни проверки и типы</h2>
+
+            <!-- Вступление -->
+            <div style="background: #122b40; padding: 1rem; border-radius: 16px; margin-bottom: 1.5rem;">
+                <p style="font-size: 1.1rem;">Сертификаты бывают разных <strong>уровней проверки</strong> (насколько тщательно проверили владельца) и разных <strong>типов по охвату</strong> (на какие домены работает). Они могут сочетаться между собой.</p>
+            </div>
+
+            <!-- Аккордеон для уровней проверки -->
+            <div class="accordion" style="margin-bottom: 2rem;">
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <h3>
+                            <span>🔰</span>
+                            УРОВНИ ПРОВЕРКИ (чем выше, тем больше доверия)
+                        </h3>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                            <!-- DV -->
+                            <div style="background: #0e2a3a; padding: 1rem; border-radius: 12px;">
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 2rem;">🏠</span>
+                                    <strong style="font-size: 1.3rem;">DV (Domain Validation) — базовый уровень</strong>
+                                </div>
+                                <p style="margin-left: 3rem;">✅ Проверка: только владение доменом</p>
+                                <p style="margin-left: 3rem;">🏢 Где используют: блоги, стартапы, личные проекты</p>
+                            </div>
+                            
+                            <!-- OV -->
+                            <div style="background: #0e2a3a; padding: 1rem; border-radius: 12px;">
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 2rem;">🏢</span>
+                                    <strong style="font-size: 1.3rem;">OV (Organization Validation) — средний уровень</strong>
+                                </div>
+                                <p style="margin-left: 3rem;">✅ Проверка: организация реально существует</p>
+                                <p style="margin-left: 3rem;">🏢 Где используют: корпоративные сайты, интернет-магазины</p>
+                            </div>                    
+							
+							 <!-- EV -->
+                            <div style="background: #0e2a3a; padding: 1rem; border-radius: 12px;">
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 2rem;">🏦</span>
+                                    <strong style="font-size: 1.3rem;">EV (Extended Validation) — максимальный уровень</strong>
+                                </div>
+                                <p style="margin-left: 3rem;">✅ Проверка: юрлицо, адрес, телефон, директора — всё досконально</p>
+                                <p style="margin-left: 3rem;">🏢 Где используют: банки, госуслуги, платёжные системы</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Аккордеон для типов по охвату -->
+            <div class="accordion">
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <h3>
+                            <span>🌐</span>
+                            ТИПЫ ПО ОХВАТУ (на какие домены работает)
+                        </h3>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                            <!-- Обычный -->
+                            <div style="background: #0e2a3a; padding: 1rem; border-radius: 12px;">
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 2rem;">📌</span>
+                                    <strong style="font-size: 1.3rem;">Обычный (Single Domain)</strong>
+                                </div>
+                                <p style="margin-left: 3rem;">✅ Работает только на один конкретный домен</p>
+                                <p style="margin-left: 3rem;">📋 Пример: example.com — только на этот домен, поддомены не работают</p>
+                                <p style="margin-left: 3rem;">➕ Самый простой и распространённый вариант</p>
+                                <p style="margin-left: 3rem; color: #aad4ff; font-style: italic;">✨ Может быть DV, OV или EV — уровень проверки выбирается отдельно</p>
+                            </div>
+                            
+                            <!-- Мультидоменный -->
+                            <div style="background: #0e2a3a; padding: 1rem; border-radius: 12px;">
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 2rem;">🔗</span>
+                                    <strong style="font-size: 1.3rem;">Мультидоменный (SAN)</strong>
+                                </div>
+                                <p style="margin-left: 3rem;">✅ Работает на несколько разных доменов в одном сертификате</p>
+                                <p style="margin-left: 3rem;">📋 Пример: site1.com, site2.ru, site3.org — всё в одном сертификате</p>
+                                <p style="margin-left: 3rem;">➕ Удобно для компаний с несколькими сайтами</p>
+                                <p style="margin-left: 3rem;">➖ Если украдут — все домены сразу под угрозой</p>
+                                <p style="margin-left: 3rem; color: #aad4ff; font-style: italic;">✨ Может быть DV, OV или EV — уровень проверки выбирается отдельно</p>
+                            </div>
+                            
+                            <!-- Wildcard -->
+                            <div style="background: #0e2a3a; padding: 1rem; border-radius: 12px;">
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 2rem;">📎</span>
+                                    <strong style="font-size: 1.3rem;">Wildcard</strong>
+                                </div>
+                                <p style="margin-left: 3rem;">✅ Работает на домен и все его поддомены</p>
+                                <p style="margin-left: 3rem;">📋 Пример: *.example.com — подходит для mail.example.com, cloud.example.com, shop.example.com</p>
+                                <p style="margin-left: 3rem;">➕ Удобно, не нужно покупать отдельно на каждый поддомен</p>
+                                <p style="margin-left: 3rem;">➖ Если украдут — под угрозой все поддомены сразу</p>
+                                <p style="margin-left: 3rem; color: #aad4ff; font-style: italic;">✨ Может быть DV, OV или EV — уровень проверки выбирается отдельно</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ СЛАЙД 8. РАЗДЕЛ: ЭТАЛОНЫ И ДЕФЕКТЫ ============ -->
+        <div class="slide section-slide" id="slide9">
+            <div class="section-icon">✅❌</div>
+            <div class="section-title">ЧАСТЬ 2</div>
+            <div class="section-subtitle">ЭТАЛОНЫ И ДЕФЕКТЫ</div>
+            <div style="width: 100px; height: 3px; background: linear-gradient(90deg, #3b9eff, transparent); margin: 2rem 0;"></div>
+            <p style="font-size: 1.6rem; color: #c2e0ff; max-width: 800px;">Замочки, mixed content, сроки и главный чек-лист</p>
+        </div>
+
+        <!-- ============ СЛАЙД 9. ВЕРСИИ TLS И АЛГОРИТМЫ ============ -->
+        <div class="slide" id="slide8">
+            <h2>⚙️ 2.1. Что должно быть настроено на современном сервере</h2>
+
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div style="background: #0e2a3a; padding: 1.2rem; border-radius: 16px;">
+                    <h3>🔄 Версии TLS — только две</h3>
+                    <p><span class="green">✅ TLS 1.3 (2018)</span> — идеал. Самая быстрая и безопасная.</p>
+                    <p><span class="green">✅ TLS 1.2 (2008)</span> — приемлемо, но пора планировать переход.</p>
+                    <p><span class="red">❌ TLS 1.1, 1.0, SSL 3.0/2.0/1.0</span> — нельзя. Устарели, взломаны, современные браузеры их блокируют.</p>
+                </div>
+
+                <div style="background: #0e2a3a; padding: 1.2rem; border-radius: 16px;">
+                    <h3>🔐 Алгоритмы — хорошие и плохие</h3>
+                    <table>
+                        <tr><th>Что это</th><th>✅ ХОРОШИЕ</th><th>❌ ПЛОХИЕ (уязвимы/взломаны)</th></tr>
+                        <tr><td>Обмен ключами</td><td>X25519, ECDHE</td><td>RSA key exchange, Static DH</td></tr>
+                        <tr><td>Шифрование</td><td>AES_256_GCM, ChaCha20</td><td>RC4, DES, 3DES, AES-CBC, NULL</td></tr>
+                        <tr><td>Хэширование</td><td>SHA-256, SHA-384</td><td>MD5, SHA-1</td></tr>
+                    </table>
+                </div>
+
+                <div style="background: #122b40; padding: 1.2rem; border-radius: 16px;">
+                    <h3>🔒 Forward Secrecy (PFS) — важно!</h3>
+                    <p><strong>Что это:</strong> Каждая сессия использует уникальный временный ключ.</p>
+                    <p><strong>Зачем:</strong> Если завтра взломают сервер и украдут приватный ключ — сегодняшние разговоры всё равно не расшифровать.</p>
+                    <p style="margin-top: 0.5rem;"><span class="green">✅ Есть PFS:</span> X25519, ECDHE</p>
+                    <p><span class="red">❌ Нет PFS:</span> RSA key exchange, Static DH</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ СЛАЙД 10. ЗАМОЧЕК И MIXED CONTENT ============ -->
+        <div class="slide" id="slide10">
+            <h2>🔒 2.2. Состояния замков</h2>
+            
+            <div class="accordion" style="margin-top: 1.5rem;">
+                <!-- СОСТОЯНИЕ 1 -->
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <h3>
+                            <span style="font-size: 2rem; color: #cccccc;">🔒</span>
+                            СОСТОЯНИЕ 1. Серый замочек — ПОРЯДОК
+                        </h3>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p style="margin-bottom: 0.5rem;">✓ Сертификат валиден, домен совпадает</p>
+                        <p style="margin-bottom: 0.5rem;">✓ Все ресурсы загружены по HTTPS</p>
+                        <p style="margin-bottom: 0.5rem;">✓ TLS 1.2 или 1.3 (лучше 1.3)</p>
+                        <p style="margin-bottom: 0.5rem;">✓ В консоли нет ошибок Mixed Content</p>
+                        <p style="margin-bottom: 0.5rem; font-style: italic;">→ «Подключение безопасно»</p>
+                        <p style="margin-top: 0.5rem; color: #b1ff9e;">✅ Всё как надо. Можно работать.</p>
+                    </div>
+                </div>
+
+                <!-- СОСТОЯНИЕ 2 -->
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <h3>
+                            <span style="font-size: 2rem; color: #cccccc;">🔒</span>
+                            СОСТОЯНИЕ 2. Серый замочек — ЕСТЬ ПРОБЛЕМЫ
+                        </h3>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p style="margin-bottom: 0.8rem;">⚠️ Замочек выглядит ТОЧНО ТАК ЖЕ, как в состоянии 1.</p>
+                        <p style="margin-bottom: 0.8rem;">⚠️ Визуально не отличить. Только ручная проверка.</p>
+                        
+                        <p style="margin-top: 1rem; margin-bottom: 0.5rem; font-weight: 700;">🔍 Что может быть не так:</p>
+                        
+                        <!-- БЛОК MIXED CONTENT -->
+                        <div style="background: rgba(90, 30, 30, 0.4); padding: 1.5rem; border-radius: 16px; margin-bottom: 1.5rem; border-left: 4px solid #ff6b6b;">
+                            
+                            <div style="margin-bottom: 1.2rem;">
+                                <span style="color: #ff9e9e; font-weight: 700; font-size: 1.3rem;">🖼️📜 Mixed content</span>
+                                <p style="font-size: 1.1rem; margin-top: 0.8rem; color: #e2edf7;">
+                                    Страница открыта по <strong>HTTPS</strong>, но внутри неё загружаются ресурсы по <strong>HTTP</strong>.<br>
+                                    → Смесь защищённого и незащищённого контента.
+                                </p>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 0.5rem;">
+                                <!-- Пассивный -->
+                                <div style="background: rgba(90, 80, 30, 0.3); padding: 1rem; border-radius: 12px;">
+                                    <p style="color: #ffd966; font-weight: 700; margin-bottom: 0.75rem; font-size: 1.1rem;">🟡 Пассивный</p>
+                                    <p style="font-size: 1rem; margin-bottom: 0.5rem;">Картинки, видео, аудио, iframe</p>
+                                    <p style="font-size: 1rem; margin-bottom: 0.3rem;">✅ Замочек: 🔒 серый</p>
+                                    <p style="font-size: 1rem; margin-bottom: 0.3rem;">✅ Контент загружается</p>
+                                    <p style="font-size: 1rem; color: #ff9e9e;">❌ Ошибка в консоли</p>
+                                </div>
+                                <!-- Активный -->
+                                <div style="background: rgba(90, 30, 30, 0.6); padding: 1rem; border-radius: 12px;">
+                                    <p style="color: #ff9e9e; font-weight: 700; margin-bottom: 0.75rem; font-size: 1.1rem;">🔴 Активный — КРИТИЧЕСКИЙ БАГ</p>
+                                    <p style="font-size: 1rem; margin-bottom: 0.5rem;">JavaScript, CSS, формы, API</p>
+                                    <p style="font-size: 1rem; margin-bottom: 0.3rem;">✅ Замочек: 🔒 серый (не отличить!)</p>
+                                    <p style="font-size: 1rem; margin-bottom: 0.3rem; color: #ff9e9e;">❌ Ресурс НЕ ЗАГРУЖАЕТСЯ</p>
+                                    <p style="font-size: 1rem; margin-bottom: 0.3rem; color: #ff9e9e;">❌ Ошибка в консоли</p>
+                                    <p style="font-size: 1rem; margin-bottom: 0.3rem; color: #ff9e9e;">❌ Сайт работает некорректно</p>
+                                </div>
+                            </div>
+                            
+                            <div style="background: #0a0f1e; border-left: 4px solid #ff6b6b; padding: 0.8rem; font-family: 'Courier New', monospace; color: #ffb3b3; border-radius: 8px; margin-top: 1.2rem; font-size: 0.85rem;">
+                                F12 → Console — МЕСТО, ГДЕ ЭТО ВИДНО:<br>
+                                ❌ Mixed Content: The page was loaded over HTTPS, but requested an insecure resource...
+                            </div>
+                        </div>
+
+                        <!-- ДРУГИЕ ПРОБЛЕМЫ -->
+                        <ul style="list-style-type: none; padding-left: 0;">
+                            <li style="margin-bottom: 1rem;">
+                                <span style="color: #ffd966; font-weight: 700;">📅 Сертификат истекает через &lt;30 дней</span><br>
+                                Браузер НЕ показывает предупреждение в интерфейсе<br>
+                                Замочек: 🔒 серый<br>
+                                <span style="color: #ffd966;">→ Увидеть: клик на замочек → Срок действия</span>
+                            </li>
+                        </ul>
+                        
+                        <p style="margin-top: 1rem;"><span class="yellow">⚠️ Ключевой вывод: серый замочек НЕ гарантирует отсутствие проблем, нужно смотреть детальнее</span></p>
+                    </div>
+                </div>
+
+                <!-- СОСТОЯНИЕ 3 -->
+                <div class="accordion-item">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <h3>
+                            <span style="font-size: 2rem; color: #ff9e9e;">❌</span>
+                            СОСТОЯНИЕ 3. Замочка нет — КРИТИЧЕСКАЯ ОПАСНОСТЬ
+                        </h3>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p style="margin-bottom: 0.8rem;">
+                            Вместо замка — 
+                            <span style="background: #ff9e9e20; padding: 0.2rem 0.4rem; border-radius: 4px;">🔺</span>
+                        </p>
+                        
+                        <p style="margin-top: 0.5rem; font-weight: 700;">❌ Причины:</p>
+                        <ul style="list-style-type: none; padding-left: 0;">
+                            <li style="margin-bottom: 0.5rem;">✗ HTTP — нет шифрования вообще</li>
+                            <li style="margin-bottom: 0.5rem;">✗ Сертификат просрочен</li>
+                            <li style="margin-bottom: 0.5rem;">✗ Самоподписанный сертификат</li>
+                            <li style="margin-bottom: 0.5rem;">✗ Домен не совпадает</li>
+                            <li style="margin-bottom: 0.5rem;">✗ TLS 1.1 - 1.0 / SSL (современные браузеры блокируют)</li>
+                            <li style="margin-bottom: 0.5rem;">✗ Недоверенный центр сертификации (ERR_CERT_AUTHORITY_INVALID)</li>
+                        </ul>
+                        
+                        <p style="margin-top: 1rem;"><span class="red">❌ Пользователь видит экран с предупреждением/об ошибке.</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ СЛАЙД 11. ЧЕК-ЛИСТ ============ -->
+        <div class="slide" id="slide13">
+            <h2>📋 2.3. Чек-лист: ЭТАЛОН vs ДЕФЕКТ</h2>
+
+            <div style="overflow-x: auto; margin-top: 1.5rem;">
+                <table style="min-width: 100%;">
+                    <tr><th>Параметр</th><th>✅ ЭТАЛОН</th><th>❌ ДЕФЕКТ</th></tr>
+                    <tr><td>Замочек</td><td>🔒 Серый</td><td>🔺 Красный треугольник</td></tr>
+                    <tr><td>Mixed content</td><td>Нет ошибок в консоли</td><td>Красные ошибки Mixed Content</td></tr>
+                    <tr><td>TLS версия</td><td>1.3 (обязательно), 1.2 (legacy)</td><td>1.1, 1.0, SSL</td></tr>
+                    <tr><td>Обмен ключами</td><td>X25519, ECDHE</td><td>RSA key exchange, Static DH</td></tr>
+                    <tr><td>Шифрование</td><td>AES_256_GCM, ChaCha20</td><td>RC4, DES, 3DES, AES-CBC</td></tr>
+                    <tr><td>Хэш</td><td>SHA-256, SHA-384</td><td>MD5, SHA-1</td></tr>
+                    <tr><td>Сертификат</td><td>Уровень OV или EV, срок > 30 дней</td><td>Self-signed, просрочен</td></tr>
+                    <tr><td>CA</td><td>GlobalSign, DigiCert, Let's Encrypt</td><td>Неизвестный, под санкциями</td></tr>
+                    <tr><td>Ресурсы</td><td>Все HTTPS</td><td>Mixed content (особенно активный)</td></tr>
+                </table>
+            </div>
+            <p style="margin-top: 1.5rem; font-size: 1.2rem; background: #122b40; padding: 1rem; border-radius: 16px;">📌 Эта таблица — ваш шаблон для тестирования любого сайта. Чек-лист, где именно это смотреть, прикреплен в следующей части.</p>
+        </div>
+
+        <!-- ============ СЛАЙД 12. РАЗДЕЛ: ИНСТРУМЕНТЫ ============ -->
+        <div class="slide section-slide" id="slide17">
+            <div class="section-icon">🛠️</div>
+            <div class="section-title">ЧАСТЬ 3</div>
+            <div class="section-subtitle">ИНСТРУМЕНТЫ</div>
+            <div style="width: 100px; height: 3px; background: linear-gradient(90deg, #3b9eff, transparent); margin: 2rem 0;"></div>
+            <p style="font-size: 1.6rem; color: #c2e0ff; max-width: 800px;">Браузер, командная строка, онлайн-сканеры — всё, что нужно для проверки HTTPS</p>
+        </div>
+
+        <!-- ============ СЛАЙД 13. ГДЕ СМОТРЕТЬ: ПОЛНЫЙ ЧЕК-ЛИСТ ДЛЯ QA ============ -->
+        <div class="slide" id="slide16">
+            <h2>🔍 3. Где смотреть? Шпаргалка для QA</h2>
+            
+            <div style="display: grid; grid-template-columns: 1.2fr 0.8fr 0.8fr; gap: 1.5rem; margin-top: 1.5rem;">
+                <!-- КОЛОНКА 1. БРАУЗЕР -->
+                <div style="background: #0e2a3a; border-radius: 24px; padding: 1.5rem; border-left: 6px solid #4a9eff;">
+                    <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem;">
+                        <span style="font-size: 2rem;">🌐</span>
+                        <h3 style="margin: 0; color: #b3e0ff;">Браузер</h3>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div>
+                            <p style="color: #aad4ff; margin-bottom: 0.3rem; font-weight: 600;">🔒 Замок → сертификат</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 📅 Срок действия</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 🌐 CN, SAN (домены)</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 🔑 Размер ключа</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 🏢 Организация (OV/EV)</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 🏛️ Издатель (CA)</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 🔑 Алгоритм подписи</p>
+                        </div>
+                        
+                        <div>
+                            <p style="color: #aad4ff; margin-bottom: 0.3rem; font-weight: 600;">🛡️ F12 → Security</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 🔧 TLS версия</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 🔄 Обмен ключами (PFS)</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 🔐 Шифрование</p>
+                        </div>
+                        
+                        <div>
+                            <p style="color: #aad4ff; margin-bottom: 0.3rem; font-weight: 600;">📋 F12 → Console</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 🖼️ Mixed Content (красные ошибки)</p>
+                        </div>
+                        
+                        <div>
+                            <p style="color: #aad4ff; margin-bottom: 0.3rem; font-weight: 600;">🌐 F12 → Network</p>
+                            <p style="margin-left: 0.8rem; font-size: 1rem;">• 📡 http:// запросы (Mixed Content)</p>
+                        </div>
+                    </div>
+                 </div>
+                
+               <!-- КОЛОНКА 2. КОМАНДНАЯ СТРОКА -->
+                <div style="background: #0e2a3a; border-radius: 24px; padding: 1.5rem; border-left: 6px solid #ffd166;">
+                    <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem;">
+                        <span style="font-size: 2rem;">⌨️</span>
+                        <h3 style="margin: 0; color: #ffe570;">Терминал (Git Bash/WSL)</h3>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 1.2rem;">
+                        <div>
+                            <p style="color: #ffd966; margin-bottom: 0.3rem; font-weight: 600;">Детали сертификата</p>
+                            <div style="background: #0a1a24; padding: 0.8rem; border-radius: 8px; font-family: monospace; font-size: 0.8rem; word-break: break-all;">
+                                openssl s_client -connect cft.ru:443 -servername cft.ru | openssl x509 -text -noout
+                            </div>
+                            <p style="margin-top: 0.3rem; font-size: 0.9rem;">→ SAN, срок, ключ, подпись</p>
+                        </div>
+                        
+                        <div>
+                            <p style="color: #ffd966; margin-bottom: 0.3rem; font-weight: 600;">Цепочка сертификатов</p>
+                            <div style="background: #0a1a24; padding: 0.8rem; border-radius: 8px; font-family: monospace; font-size: 0.8rem; word-break: break-all;">
+                                openssl s_client -connect cft.ru:443 -showcerts
+                            </div>
+                            <p style="margin-top: 0.3rem; font-size: 0.9rem;">→ Корневой, промежуточный, серверный</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- КОЛОНКА 3. ОНЛАЙН-СКАНЕРЫ -->
+                <div style="background: #0e2a3a; border-radius: 24px; padding: 1.5rem; border-left: 6px solid #3dd68c;">
+                    <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem;">
+                        <span style="font-size: 2rem;">🌍</span>
+                        <h3 style="margin: 0; color: #b1ff9e;">Онлайн</h3>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div style="background: #1e4a3a; padding: 1rem; border-radius: 16px;">
+                            <p style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">🔗 SSL Labs</p>
+                            <p style="font-size: 0.95rem;">ssllabs.com/ssltest/</p>
+                            <p style="margin-top: 0.8rem; font-size: 0.9rem;">✅ Оценка A, B, C, F</p>
+                            <p style="font-size: 0.9rem;">✅ Все TLS версии</p>
+                            <p style="font-size: 0.9rem;">✅ Все шифры</p>
+                            <p style="font-size: 0.9rem;">✅ OCSP, уязвимости</p>
+                            <p style="font-size: 0.9rem;">✅ Certificate Transparency</p>
+                        </div>
+                        
+                        <div style="background: #1e3a5a; padding: 1rem; border-radius: 16px;">
+                            <p style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">🔍 crt.sh</p>
+                            <p style="font-size: 0.95rem;">crt.sh/?q=cft.ru</p>
+                            <p style="margin-top: 0.5rem; font-size: 0.9rem;">✅ Все выданные сертификаты</p>
+                            <p style="font-size: 0.9rem;">✅ CT-логи</p>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1.2rem; background: #1e4a3a; padding: 0.8rem; border-radius: 12px; text-align: center;">
+                        <span style="color: #b1ff9e; font-weight: 700;">🏆 SSL Labs — золотой стандарт</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ СЛАЙД 14. РАЗДЕЛ: ПРАКТИЧЕСКИЙ РАЗБОР ============ -->
+        <div class="slide section-slide" id="slide14">
+            <div class="section-icon">🔍</div>
+            <div class="section-title">ЧАСТЬ 4</div>
+            <div class="section-subtitle">ПРАКТИЧЕСКИЙ РАЗБОР</div>
+            <div style="width: 100px; height: 3px; background: linear-gradient(90deg, #3b9eff, transparent); margin: 2rem 0;"></div>
+            <p style="font-size: 1.6rem; color: #c2e0ff; max-width: 800px;">Применяем чек-лист к реальному сайту cft.ru</p>
+        </div>
+
+        <!-- ============ СЛАЙД 15. ПРОВЕРЯЕМ CFT.RU ============ -->
+        <div class="slide" id="slide15">
+            <h2>📋 4. ПРАКТИЧЕСКИЙ РАЗБОР: cft.ru</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 2rem; margin-top: 1.5rem;">
+                <!-- ЛЕВАЯ КОЛОНКА: СКРИНШОТ СЕРТИФИКАТА -->
+        <div style="background: #0e2a3a; border-radius: 24px; padding: 1.5rem; border: 1px solid #2f6080; display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; margin-bottom: 1rem; color: #aad4ff; font-size: 1.4rem;">🖼️ Сертификат в браузере</h3>
+            <div style="background: #0a1a2a; border-radius: 16px; overflow: hidden; border: 1px solid #2f6080; text-align: center;">
+                <img src="msedge_mO0TOUaaK5.png" alt="Скриншот сертификата cft.ru" 
+                     style="width: 100%; height: auto; display: block;">
+            </div>
+            <p style="margin-top: 1rem; color: #aad4ff; font-size: 0.9rem; text-align: center;">
+                🔍 Кому выдан: *.cft.ru · O: JSC Center of Financial Technologies<br>
+                🏛️ Кем выдан: GlobalSign · Действителен до: 10.05.2026
+            </p>
+        </div>
+                
+                <!-- ПРАВАЯ КОЛОНКА: ЧЕК-ЛИСТ ПРОВЕРКИ -->
+                <div style="background: #0e2a3a; border-radius: 24px; padding: 1.5rem; border: 1px solid #2f6080;">
+                    <h3 style="margin-top: 0; margin-bottom: 1rem; color: #aad4ff; font-size: 1.4rem;">✅ ЧЕК-ЛИСТ</h3>
+                    <div style="overflow-x: auto; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
+                        <table style="width: 100%; margin: 0; font-size: 1rem;">
+                            <tr><td style="width: 50%;"><strong>🔒 Замочек</strong></td><td>🔒 Серый</td><td class="green" style="text-align: right;">✅</td></tr>
+                            <tr><td><strong>📅 Сертификат</strong></td><td>Годен до 10.05.2026</td><td class="green" style="text-align: right;">✅ >2 мес</td></tr>
+                            <tr><td><strong>🌐 Домен (SAN)</strong></td><td>*.cft.ru, cft.ru</td><td class="green" style="text-align: right;">✅</td></tr>
+                            <tr><td><strong>🔑 Размер ключа</strong></td><td>RSA 4096 бит</td><td class="green" style="text-align: right;">✅</td></tr>
+                            <tr><td><strong>🏢 Уровень проверки</strong></td><td>OV (Organization Validation)</td><td class="green" style="text-align: right;">✅</td></tr>
+                            <tr><td><strong>🏛️ Издатель (CA)</strong></td><td>GlobalSign</td><td class="green" style="text-align: right;">✅</td></tr>
+                            <tr><td><strong>🔧 TLS версия</strong></td><td>TLS 1.3, 1.2</td><td class="green" style="text-align: right;">✅</td></tr>
+                            <tr><td><strong>🔄 Обмен ключей</strong></td><td>X25519</td><td class="green" style="text-align: right;">✅ PFS</td></tr>
+                            <tr><td><strong>🔐 Шифрование</strong></td><td>AES_256_GCM</td><td class="green" style="text-align: right;">✅</td></tr>
+                            <tr><td><strong>🖼️ Mixed content</strong></td><td>Нет</td><td class="green" style="text-align: right;">✅</td></tr>
+                            <tr><td><strong>🔑 Алгоритм подписи</strong></td><td>SHA-256</td><td class="green" style="text-align: right;">✅</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ИТОГОВЫЙ БЛОК - ЭТАЛОН -->
+            <div style="margin-top: 1.5rem; background: #1e4a3a; padding: 1rem 1.5rem; border-radius: 60px; display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                <span style="font-size: 2rem;">🏆</span>
+                <span style="font-size: 1.4rem; font-weight: 700; color: #b1ff9e;">ЭТАЛОННАЯ НАСТРОЙКА</span>
+            </div>
+        </div>
+
+        <!-- ============ СЛАЙД 16. ФИНАЛ ============ -->
+        <div class="slide" id="slide21">
+            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100%; text-align: center;">
+                <span style="font-size: 5rem; margin-bottom: 1rem;">🎉</span>
+                <h1 style="font-size: 4rem; margin-bottom: 1rem;">Всё!</h1>
+                <h1 style="font-size: 4rem; margin-bottom: 3rem; background: linear-gradient(135deg, #fff, #b3e0ff); -webkit-background-clip: text;">Спасибо за внимание!</h1>
+                
+                <div style="margin-top: 3rem; background: rgba(255,255,255,0.05); padding: 2rem 4rem; border-radius: 60px; backdrop-filter: blur(8px); border: 1px solid rgba(74,158,255,0.3);">
+                    <p style="font-size: 2rem; margin-bottom: 0.5rem;">Вопросы?</p>
+                </div>
+                
+                <div style="margin-top: 4rem; color: #90b8d9;">
+                    <p style="font-size: 0.9rem; margin-top: 0.5rem;">🔒 HTTPS для QA — От замочка до экспертизы</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Навигация в виде футера -->
+    <div class="nav-footer">
+        <div class="progress-footer" id="progress">1 / 17</div>
+        <div class="nav-controls-footer">
+            <button class="nav-btn-footer home-btn-footer" id="homeBtn" title="На первый слайд (оглавление)">🏠</button>
+            <button class="nav-btn-footer" id="prevBtn">←</button>
+            <button class="nav-btn-footer" id="nextBtn">→</button>
+        </div>
+    </div>
+
+    <script>
+        // Функция для аккордеона
+        function toggleAccordion(header) {
+            var item = header.closest('.accordion-item');
+            item.classList.toggle('active');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const slides = document.querySelectorAll('.slide');
+            const progress = document.getElementById('progress');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const homeBtn = document.getElementById('homeBtn');
+            
+            let currentSlide = 0;
+            const totalSlides = slides.length;
+
+            function showSlide(index) {
+                if (index < 0) index = 0;
+                if (index >= totalSlides) index = totalSlides - 1;
+                
+                slides.forEach(slide => {
+                    slide.classList.remove('active');
+                });
+                
+                slides[index].classList.add('active');
+                currentSlide = index;
+                progress.innerText = (index + 1) + ' / ' + totalSlides;
+            }
+
+            prevBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                showSlide(currentSlide - 1);
+            });
+
+            nextBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                showSlide(currentSlide + 1);
+            });
+
+            // Кнопка "Домой" для возврата на первый слайд
+            homeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                showSlide(0);
+            });
+
+            window.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    showSlide(currentSlide - 1);
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    showSlide(currentSlide + 1);
+                } else if (e.key === 'Home' || e.key === 'PageUp') {
+                    e.preventDefault();
+                    showSlide(0);
+                }
+            });
+
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const slideId = this.getAttribute('data-slide');
+                    if (slideId) {
+                        const targetSlide = document.getElementById('slide' + slideId);
+                        if (targetSlide) {
+                            const slideIndex = Array.from(slides).indexOf(targetSlide);
+                            if (slideIndex !== -1) {
+                                showSlide(slideIndex);
+                            }
+                        }
+                    }
+                });
+            });
+
+            showSlide(0);
+        });
+    </script>
+</body>
+</html>
